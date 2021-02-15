@@ -12,6 +12,9 @@ param(
   [string]$TenantId = "72f988bf-86f1-41af-91ab-2d7cd011db47",
 
   [Parameter(mandatory = $false)]
+  [switch]$AllSubscriptions = $false,
+  
+  [Parameter(mandatory = $false)]
   [switch]$TagResources = $true,
 
   [Parameter(mandatory = $false)]
@@ -57,6 +60,12 @@ function Inspect-Resources {
         [string]$ObjectName,
         [string]$DryRun
     )
+
+    # If "All Subscriptions" has not been specified, the query is scoped current subscription only
+    if (!$AllSubscriptions) {
+        $Query = $Query + " | where subscriptionId == '$SubscriptionId'"
+    }
+
     # If a ResourceGroup has been specified, the query is scoped to that RG
     if ($ResourceGroupName) {
         $Query = $Query + " | where resourceGroup == '$ResourceGroupName'"
@@ -101,22 +110,22 @@ function Inspect-Resources {
 }
 
 # Get orphan disks
-$Query = "Resources | where subscriptionId=='$SubscriptionId' and type =~ 'microsoft.compute/disks' and isnull(managedBy)"
+$Query = "Resources | where tenantId=='$TenantId' and type =~ 'microsoft.compute/disks' and isnull(managedBy)"
 Inspect-Resources -Query $Query -ObjectName 'disk' -DryRun $DryRun
 
 # Get orphan NSGs
-$Query = "Resources | where subscriptionId=='$SubscriptionId' and type =~ 'microsoft.network/networksecuritygroups' and isnull(properties.networkInterfaces) and isnull(properties.subnets)"
+$Query = "Resources | where tenantId=='$TenantId' and type =~ 'microsoft.network/networksecuritygroups' and isnull(properties.networkInterfaces) and isnull(properties.subnets)"
 Inspect-Resources -Query $Query -ObjectName 'NSG' -DryRun $DryRun
 
 # Get orphan NICs
 # To show aliases/properties for NICs:
 # $(Search-AzGraph -Query "Resources | where type =~ 'Microsoft.Network/networkInterfaces' | limit 1 | project aliases").aliases
 # $(Search-AzGraph -Query "Resources | where subscriptionId=='$SubscriptionId' and type =~ 'microsoft.network/networkinterfaces' | limit 1").properties
-$Query = "Resources | where subscriptionId=='$SubscriptionId' and type =~ 'microsoft.network/networkinterfaces' and isnull(properties.virtualMachine)"
+$Query = "Resources | where tenantId=='$TenantId' and type =~ 'microsoft.network/networkinterfaces' and isnull(properties.virtualMachine)"
 Inspect-Resources -Query $Query -ObjectName 'NIC' -DryRun $DryRun
 
 # Public IPs
 # To show aliases for public IPs:
 # $(Search-AzGraph -Query "Resources | where type =~ 'Microsoft.Network/publicipaddresses' | limit 1 | project aliases").aliases
-$Query = "Resources | where subscriptionId=='$SubscriptionId' and type =~ 'microsoft.network/publicipaddresses' and isnull(aliases['Microsoft.Network/publicIPAddresses/ipConfiguration'])"
+$Query = "Resources | where tenantId=='$TenantId' and type =~ 'microsoft.network/publicipaddresses' and isnull(aliases['Microsoft.Network/publicIPAddresses/ipConfiguration'])"
 Inspect-Resources -Query $Query -ObjectName 'PIP' -DryRun $DryRun
